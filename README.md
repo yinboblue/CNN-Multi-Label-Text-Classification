@@ -25,9 +25,9 @@ Use `gensim` package to pre-train my data.
 
 ## Innovation
 
-1. Make the data support Chinese and English.(Which use `gensim` seems easy)
-2. Can use your own pre-trained word vectors.
-3. Add a new Highway Layer.
+1. Make the data support **Chinese** and English.(Which use `gensim` seems easy)
+2. Can use **your own pre-trained word vectors**.
+3. Add a new **Highway Layer**.
 
 
 ## References
