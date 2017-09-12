@@ -98,7 +98,7 @@ class Text(object):
     @property
     def line_num(self):
         """Returns the line number of the file."""
-        count = 1
+        count = 0
         with open(self.filename, 'rb') as fin:
             while True:
                 buffer = fin.read(8192 * 1024)
