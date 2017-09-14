@@ -16,9 +16,9 @@ def linear(input_, output_size, scope=None):
 
     shape = input_.get_shape().as_list()
     if len(shape) != 2:
-        raise ValueError("Linear is expecting 2D arguments: %s" % str(shape))
+        raise ValueError("Linear is expecting 2D arguments: {}".format(str(shape)))
     if not shape[1]:
-        raise ValueError("Linear expects shape[1] of arguments: %s" % str(shape))
+        raise ValueError("Linear expects shape[1] of arguments: {}".format(str(shape)))
     input_size = shape[1]
 
     # Now the computation.
@@ -76,14 +76,14 @@ class TextCNN(object):
             else:
                 self.W = tf.Variable(pretrained_embedding, name="W", trainable=True)
                 self.W = tf.cast(self.W, tf.float32)
-            self.embedded_chars = tf.nn.embedding_lookup(self.W, self.input_x_front)
+            self.embedded_chars = tf.nn.embedding_lookup(self.W, self.input_x)
             self.embedded_chars_expanded = tf.expand_dims(self.embedded_chars, -1)
 
         # Create a convolution + maxpool layer for each filter size
         pooled_outputs = []
 
         for i, filter_size in enumerate(filter_sizes):
-            with tf.name_scope("conv-maxpool-%s".format(filter_size)):
+            with tf.name_scope("conv-maxpool-{}".format(filter_size)):
                 # Convolution Layer
                 filter_shape = [filter_size, embedding_size, 1, num_filters]
                 W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name="W")

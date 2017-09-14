@@ -2,7 +2,6 @@
 
 import os
 import multiprocessing
-import numpy as np
 import gensim
 import logging
 import numpy as np
@@ -20,7 +19,7 @@ mpl.rcParams['font.sans-serif'] = ['FangSong']  # 指定默认字体
 mpl.rcParams['axes.unicode_minus'] = False  # 解决保存图像是负号'-'显示为方块的问题
 
 BASE_DIR = os.getcwd()
-TEXT_DIR = BASE_DIR + '/content.txt'
+TEXT_DIR = BASE_DIR + '/origin_features_content.txt'
 
 
 def create_word2vec_model(embedding_size, input_file=TEXT_DIR):
@@ -62,11 +61,9 @@ def data_word2vec(input_file, word2vec_model):
 
     with open(input_file) as fin:
         labels = []
-        front_content_indexlist = []
-        behind_content_indexlist = []
+        content_indexlist = []
         for index, eachline in enumerate(fin):
-            front_content = []
-            behind_content = []
+            content = []
             line = eachline.strip().split('\t')
             label = line[2]
             content = line[3].strip().split(' ')

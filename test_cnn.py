@@ -2,9 +2,8 @@ import os
 import sys
 import json
 import logging
-import data_helper
+import data_helpers
 import numpy as np
-import pandas as pd
 import tensorflow as tf
 from tensorflow.contrib import learn
 
@@ -31,7 +30,7 @@ def predict_unseen_data():
     label_dict = dict(zip(labels, one_hot))
 
     x_raw = [example['consumer_complaint_narrative'] for example in test_examples]
-    x_test = [data_helper.clean_str(x) for x in x_raw]
+    x_test = [data_helpers.clean_str(x) for x in x_raw]
     logging.info('The number of x_test: {}'.format(len(x_test)))
 
     y_test = None
@@ -58,7 +57,7 @@ def predict_unseen_data():
             dropout_keep_prob = graph.get_operation_by_name("dropout_keep_prob").outputs[0]
             predictions = graph.get_operation_by_name("output/predictions").outputs[0]
 
-            batches = data_helper.batch_iter(list(x_test), params['batch_size'], 1, shuffle=False)
+            batches = data_helpers.batch_iter(list(x_test), params['batch_size'], 1, shuffle=False)
             all_predictions = []
             for x_test_batch in batches:
                 batch_predictions = sess.run(predictions, {input_x: x_test_batch, dropout_keep_prob: 1.0})
