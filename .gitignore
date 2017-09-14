@@ -103,7 +103,8 @@ target/
 *.txt
 *.docx
 *.json
-word2vec
 Plan.md
 temp.py
 Icon?
+LSTM
+*.model
