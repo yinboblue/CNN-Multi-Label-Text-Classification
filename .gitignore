@@ -101,10 +101,7 @@ target/
 
 ###Private Data info###
 *.txt
-*.docx
 *.json
-Plan.md
 temp.py
 Icon?
-LSTM
 *.model
