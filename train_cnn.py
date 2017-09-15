@@ -16,8 +16,8 @@ logging.getLogger().setLevel(logging.INFO)
 FLAGS = tf.flags.FLAGS
 BASE_DIR = os.getcwd()
 
-TRAININGSET_DIR = BASE_DIR + '/Train_content.json'
-VALIDATIONSET_DIR = BASE_DIR + '/Test_content.json'
+TRAININGSET_DIR = BASE_DIR + '/Train.json'
+VALIDATIONSET_DIR = BASE_DIR + '/Test.json'
 
 # Data loading params
 tf.flags.DEFINE_string("training_data_file", TRAININGSET_DIR, "Data source for the training data.")
@@ -36,6 +36,7 @@ tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 
 tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 100, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
+tf.flags.DEFINE_integer("num_labels", 367, "Number of labels (depends on the task)")
 
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
@@ -51,21 +52,21 @@ def train_cnn():
 
     logging.info('✔︎ Training data processing...')
     train_data, train_data_max_seq_len = \
-        data_helpers.load_data_and_labels(FLAGS.training_data_file, FLAGS.embedding_dim)
+        data_helpers.load_data_and_labels(FLAGS.training_data_file, FLAGS.num_labels, FLAGS.embedding_dim)
 
     logging.info('✔︎ Validation data processing...')
     validation_data, validation_data_max_seq_len = \
-        data_helpers.load_data_and_labels(FLAGS.validation_data_file, FLAGS.embedding_dim)
+        data_helpers.load_data_and_labels(FLAGS.validation_data_file, FLAGS.num_labels, FLAGS.embedding_dim)
 
     MAX_SEQUENCE_LENGTH = max(train_data_max_seq_len, validation_data_max_seq_len)
     logging.info('Max sequence length is: {}'.format(MAX_SEQUENCE_LENGTH))
 
     logging.info('✔︎ Training data padding...')
-    x_train_front, x_train_behind, y_train = \
+    x_train, y_train = \
         data_helpers.pad_data(train_data, MAX_SEQUENCE_LENGTH)
 
     logging.info('✔︎ Validation data padding...')
-    x_validation_front, x_validation_behind, y_validation = \
+    x_validation, y_validation = \
         data_helpers.pad_data(validation_data, MAX_SEQUENCE_LENGTH)
 
     # Build vocabulary

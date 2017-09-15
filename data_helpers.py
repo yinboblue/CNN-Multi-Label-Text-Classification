@@ -2,8 +2,10 @@
 
 import os
 import multiprocessing
+import numpy as np
 import gensim
 import logging
+import json
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as PathEffects
@@ -19,10 +21,15 @@ mpl.rcParams['font.sans-serif'] = ['FangSong']  # 指定默认字体
 mpl.rcParams['axes.unicode_minus'] = False  # 解决保存图像是负号'-'显示为方块的问题
 
 BASE_DIR = os.getcwd()
-TEXT_DIR = BASE_DIR + '/origin_features_content.txt'
+TEXT_DIR = BASE_DIR + '/content.txt'
 
 
 def create_word2vec_model(embedding_size, input_file=TEXT_DIR):
+    """
+    Create the word2vec model based on the given embedding size and the corpus file.
+    :param embedding_size: The embedding size
+    :param input_file: The corpus file
+    """
     word2vec_file = BASE_DIR + '/word2vec_' + str(embedding_size) + '.model'
 
     if os.path.isfile(word2vec_file):
@@ -36,6 +43,11 @@ def create_word2vec_model(embedding_size, input_file=TEXT_DIR):
 
 
 def load_vocab_size(embedding_size):
+    """
+    Return the vocab size of the word2vec file.
+    :param embedding_size: The embedding size
+    :return: The vocab size of the word2vec file
+    """
     word2vec_file = BASE_DIR + '/word2vec_' + str(embedding_size) + '.model'
 
     if os.path.isfile(word2vec_file):
@@ -46,67 +58,78 @@ def load_vocab_size(embedding_size):
                      "Please use function <create_vocab_size(embedding_size)> to create it!")
 
 
-def data_word2vec(input_file, word2vec_model):
+def data_word2vec(input_file, num_labels, word2vec_model):
+    """
+    Create the research data tokenindex based on the word2vec model file.
+    Returns the class Data(includes the data tokenindex and data labels).
+    :param input_file: The research data
+    :param word2vec_model: The word2vec model file
+    :return: The class Data(includes the data tokenindex and data labels)
+    """
+
     vocab = dict([(k, v.index) for (k, v) in word2vec_model.wv.vocab.items()])
 
     def token_to_index(content):
         result = []
         for item in content:
-            if item != '<end>' and (len(item) > 0):
-                id = vocab.get(item)
-                if id is None:
-                    id = 0
-                result.append(id)
+            id = vocab.get(item)
+            if id is None:
+                id = 0
+            result.append(id)
         return result
 
-    with open(input_file) as fin:
-        labels = []
-        content_indexlist = []
-        for index, eachline in enumerate(fin):
-            content = []
-            line = eachline.strip().split('\t')
-            label = line[2]
-            content = line[3].strip().split(' ')
+    def create_label(label_index):
+        label = [0] * num_labels
+        for item in label_index:
+            label[int(item)] = 1
+        return label
 
-            end_tag = False
-            for item in content:
-                if item == '<end>':
-                    end_tag = True
-                if not end_tag:
-                    front_content.append(item)
-                if end_tag:
-                    behind_content.append(item)
+    if input_file.endswith('.json'):
+        with open(input_file) as fin:
+            labels = []
+            content_indexlist = []
+            for index, eachline in enumerate(fin):
+                content = []
+                data = json.loads(eachline)
+                label_index = data['knows_index'].strip().split()
+                features_content = data['features_content'].strip().split()
 
-            labels.append(label)
+                for item in features_content:
+                    content.append(item)
 
-            front_content_indexlist.append(token_to_index(front_content))
-            behind_content_indexlist.append(token_to_index(behind_content[1:]))
-        total_line = index + 1
+                labels.append(create_label(label_index))
+                content_indexlist.append(token_to_index(content))
+            total_line = index + 1
 
-    class Data:
-        def __init__(self):
-            pass
+        class Data:
+            def __init__(self):
+                pass
 
-        @property
-        def number(self):
-            return total_line
+            @property
+            def number(self):
+                return total_line
 
-        @property
-        def labels(self):
-            return labels
+            @property
+            def labels(self):
+                return labels
 
-        @property
-        def front_tokenindex(self):
-            return front_content_indexlist
+            @property
+            def tokenindex(self):
+                return content_indexlist
 
-        @property
-        def behind_tokenindex(self):
-            return behind_content_indexlist
-
-    return Data()
+        return Data()
+    else:
+        logging.info('✘ The research data is not a json file. '
+                     'Please preprocess the research data into the json file.')
 
 
 def load_word2vec_matrix(vocab_size, embedding_size):
+    """
+    Return the word2vec model matrix.
+    :param vocab_size: The vocab size of the word2vec model file
+    :param embedding_size: The embedding size
+    :return: The word2vec model matrix
+    """
     word2vec_file = BASE_DIR + '/word2vec_' + str(embedding_size) + '.model'
 
     if os.path.isfile(word2vec_file):
@@ -122,10 +145,13 @@ def load_word2vec_matrix(vocab_size, embedding_size):
                      "Please use function <create_vocab_size(embedding_size)> to create it!")
 
 
-def load_data_and_labels(data_file, embedding_size):
+def load_data_and_labels(data_file, num_labels, embedding_size):
     """
     Loads research data from files, splits the data into words and generates labels.
-    Returns split sentences and labels.
+    Returns split sentences, labels and the max sentence length of the research data.
+    :param data_file: The research data
+    :param embedding_size: The embedding size
+    :returns: The class data and the max sentence length of the research data
     """
     word2vec_file = BASE_DIR + '/word2vec_' + str(embedding_size) + '.model'
 
@@ -136,22 +162,30 @@ def load_data_and_labels(data_file, embedding_size):
         create_word2vec_model(embedding_size, TEXT_DIR)
 
     # Load data from files and split by words
-    data = data_word2vec(input_file=data_file, word2vec_model=model)
-    max_front_len = max([len(x) for x in data.front_tokenindex])
-    max_behind_len = max([len(x) for x in data.behind_tokenindex])
-    max_seq_len = max(max_front_len, max_behind_len)
+    data = data_word2vec(input_file=data_file, num_labels=num_labels, word2vec_model=model)
+    max_seq_len = max([len(x) for x in data.tokenindex])
     logging.info('Found {} texts.'.format(data.number))
     return data, max_seq_len
 
 
 def pad_data(data, max_seq_len):
-    data_front = pad_sequences(data.front_tokenindex, maxlen=max_seq_len, value=0.)
-    data_behind = pad_sequences(data.behind_tokenindex, maxlen=max_seq_len, value=0.)
-    labels = to_categorical(data.labels, nb_classes=2)
-    return data_front, data_behind, labels
+    """
+    Padding each sentence of research data according to the max sentence length.
+    Returns the padded data and data labels.
+    :param data: The research data
+    :param max_seq_len: The max sentence length of research data
+    :returns: The padded data and data labels
+    """
+    pad_data = pad_sequences(data.tokenindex, maxlen=max_seq_len, value=0.)
+    labels = data.labels
+    return pad_data, labels
 
 
 def plot_word2vec(word2vec_file):
+    """
+    Visualizing the data info of the word2vec model based on t-SNE.
+    :param word2vec_file: The word2vec model file
+    """
     model = gensim.models.Word2Vec.load(word2vec_file)
     data_x = []
     data_y = []
@@ -194,7 +228,6 @@ def batch_iter(data, batch_size, num_epochs, shuffle=True):
     :param batch_size: The size of the data batch
     :param num_epochs: The number of epoches
     :param shuffle: Shuffle or not
-    :return:
     """
     data = np.array(data)
     data_size = len(data)
