@@ -1,6 +1,10 @@
 # Convolutional Neural Networks for Multi-Label Text Classification
 
-The main objective of the project is to .
+This project is my research group project, and it is also a study of TensorFlow, Deep Learning(CNN, RNN, LSTM, etc.).
+
+The main objective of the project is to solve the multi-label text classification problem.
+
+The project refer to [dennybritz/cnn-text-classification-tf](https://github.com/dennybritz/cnn-text-classification-tf), make the data helper supports Chinese language (Task required) and modified the network structure (Based on my task).
 
 ## Requirements
 
@@ -32,7 +36,8 @@ Use `gensim` package to pre-train my data.
 
 ## References
 
-
+- [Convolutional Neural Networks for Sentence Classification](http://arxiv.org/abs/1408.5882)
+- [A Sensitivity Analysis of (and Practitioners' Guide to) Convolutional Neural Networks for Sentence Classification](http://arxiv.org/abs/1510.03820)
 
 ## About Me
 
