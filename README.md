@@ -2,7 +2,7 @@
 
 This project is my research group project, and it is also a study of TensorFlow, Deep Learning(CNN, RNN, LSTM, etc.).
 
-The main objective of the project is to solve the multi-label text classification problem.
+The main objective of the project is to solve the multi-label text classification problem based on Convolutional Neural Networks.
 
 The project refer to [dennybritz/cnn-text-classification-tf](https://github.com/dennybritz/cnn-text-classification-tf), make the data helper supports Chinese language (Task required) and modified the network structure (Based on my task).
 
