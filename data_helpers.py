@@ -3,6 +3,7 @@
 import os
 import multiprocessing
 import numpy as np
+import random
 import gensim
 import logging
 import json
@@ -10,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as PathEffects
 
-from pylab import mpl
+from pylab import *
 from gensim.models import word2vec
 from tflearn.data_utils import to_categorical, pad_sequences
 from sklearn.manifold import TSNE
@@ -56,6 +57,48 @@ def load_vocab_size(embedding_size):
     else:
         logging.info("✘ The word2vec file doesn't exist. "
                      "Please use function <create_vocab_size(embedding_size)> to create it!")
+
+
+def data_augmented(data_tokenindex, data_labels):
+    """Data augmented"""
+    aug_data = []
+    aug_label = []
+    aug_num = 0
+    for i in range(len(data_tokenindex)):
+        data_record = data_tokenindex[i]
+        if len(data_record) == 1:  # 句子长度为 1，则不进行增广
+            continue
+        elif len(data_record) == 2:  # 句子长度为 2，则交换两个词的顺序
+            data_record[0], data_record[1] = data_record[1], data_record[0]
+            aug_data.append(data_record)
+            aug_label.append(data_labels[i])
+            aug_num += 1
+        else:
+            data_record = np.array(data_record)
+            for num in range(len(data_record) - 1):  # 打乱词的次数，次数即生成样本的个数；次数根据句子长度而定
+                data_shuffled = np.random.permutation(np.arange(len(data_record)))
+                new_data_record = data_record[data_shuffled]
+                aug_data.append(list(new_data_record))
+                aug_label.append(data_labels[i])
+                aug_num += 1
+
+    class AugData:
+        def __init__(self):
+            pass
+
+        @property
+        def number(self):
+            return aug_num
+
+        @property
+        def labels(self):
+            return aug_label
+
+        @property
+        def tokenindex(self):
+            return aug_data
+
+    return AugData()
 
 
 def data_word2vec(input_file, num_labels, word2vec_model):
@@ -161,14 +204,20 @@ def load_data_and_labels(data_file, num_labels, embedding_size):
     else:
         create_word2vec_model(embedding_size, TEXT_DIR)
 
+
     # Load data from files and split by words
     data = data_word2vec(input_file=data_file, num_labels=num_labels, word2vec_model=model)
-    max_seq_len = max([len(x) for x in data.tokenindex])
+    # aug_data = data_augmented(data_tokenindex=data.tokenindex, data_labels=data.labels)
+
+    plot_seq_len(data_file, data)
+
     logging.info('Found {} texts.'.format(data.number))
-    return data, max_seq_len
+    # logging.info('Augmented {} texts.'.format(aug_data.number))
+
+    return data
 
 
-def pad_data(data, max_seq_len):
+def pad_data(data, pad_seq_len):
     """
     Padding each sentence of research data according to the max sentence length.
     Returns the padded data and data labels.
@@ -176,9 +225,40 @@ def pad_data(data, max_seq_len):
     :param max_seq_len: The max sentence length of research data
     :returns: The padded data and data labels
     """
-    pad_data = pad_sequences(data.tokenindex, maxlen=max_seq_len, value=0.)
+    pad_data = pad_sequences(data.tokenindex, maxlen=pad_seq_len, value=0.)
     labels = data.labels
     return pad_data, labels
+
+
+def plot_seq_len(data_file, data, percentage=0.98):
+    output_file = data_file.split('.')[0] + ' Sequence Length Distribution Histogram.png'
+    result = dict()
+    for x in data.tokenindex:
+        if len(x) not in result.keys():
+            result[len(x)] = 1
+        else:
+            result[len(x)] += 1
+    freq_seq = [(key, result[key]) for key in sorted(result.keys())]
+    x = []
+    y = []
+    avg = 0
+    count = 0
+    border_index = []
+    print(data.number)
+    for item in freq_seq:
+        x.append(item[0])
+        y.append(item[1])
+        avg += item[0] * item[1]
+        count += item[1]
+        if count > data.number * percentage:
+            border_index.append(item[0])
+    avg = avg / data.number
+    logging.info('The average of the data sequence length is {}'.format(avg))
+    logging.info('The recommend of padding sequence length should more than {}'.format(border_index[0]))
+    xlim(0, 200)
+    plt.bar(x, y)
+    plt.savefig(output_file)
+    plt.close()
 
 
 def plot_word2vec(word2vec_file):

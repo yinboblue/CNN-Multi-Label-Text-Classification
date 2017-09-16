@@ -24,7 +24,9 @@ tf.flags.DEFINE_string("training_data_file", TRAININGSET_DIR, "Data source for t
 tf.flags.DEFINE_string("validation_data_file", VALIDATIONSET_DIR, "Data source for the validation data.")
 
 # Model Hyperparameterss
+tf.flags.DEFINE_integer("pad_seq_len", 150, "Recommand padding Sequence length of data (depends on the data)")
 tf.flags.DEFINE_integer("embedding_dim", 100, "Dimensionality of character embedding (default: 128)")
+tf.flags.DEFINE_integer("embedding_type", 1, "The embedding type (default: 1)")
 tf.flags.DEFINE_string("filter_sizes", "3,4,5", "Comma-separated filter sizes (default: '3,4,5')")
 tf.flags.DEFINE_integer("num_filters", 128, "Number of filters per filter size (default: 128)")
 tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (default: 0.5)")
@@ -36,7 +38,7 @@ tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 
 tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 100, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
-tf.flags.DEFINE_integer("num_labels", 367, "Number of labels (depends on the task)")
+tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
 
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
@@ -46,28 +48,26 @@ tf.flags.DEFINE_boolean("gpu_options_allow_growth", True, "Allow gpu options gro
 
 def train_cnn():
     """Training CNN model."""
-
     # Load sentences, labels, and training parameters
     logging.info('✔︎ Loading data...')
 
     logging.info('✔︎ Training data processing...')
-    train_data, train_data_max_seq_len = \
+    train_data = \
         data_helpers.load_data_and_labels(FLAGS.training_data_file, FLAGS.num_labels, FLAGS.embedding_dim)
 
     logging.info('✔︎ Validation data processing...')
-    validation_data, validation_data_max_seq_len = \
+    validation_data = \
         data_helpers.load_data_and_labels(FLAGS.validation_data_file, FLAGS.num_labels, FLAGS.embedding_dim)
 
-    MAX_SEQUENCE_LENGTH = max(train_data_max_seq_len, validation_data_max_seq_len)
-    logging.info('Max sequence length is: {}'.format(MAX_SEQUENCE_LENGTH))
+    logging.info('Recommand padding Sequence length is: {}'.format(FLAGS.pad_seq_len))
 
     logging.info('✔︎ Training data padding...')
     x_train, y_train = \
-        data_helpers.pad_data(train_data, MAX_SEQUENCE_LENGTH)
+        data_helpers.pad_data(train_data, FLAGS.pad_seq_len)
 
     logging.info('✔︎ Validation data padding...')
     x_validation, y_validation = \
-        data_helpers.pad_data(validation_data, MAX_SEQUENCE_LENGTH)
+        data_helpers.pad_data(validation_data, FLAGS.pad_seq_len)
 
     # Build vocabulary
     VOCAB_SIZE = data_helpers.load_vocab_size(FLAGS.embedding_dim)
@@ -82,10 +82,11 @@ def train_cnn():
         sess = tf.Session(config=session_conf)
         with sess.as_default():
             cnn = TextCNN(
-                sequence_length=MAX_SEQUENCE_LENGTH,
-                num_classes=y_train.shape[1],
+                sequence_length=FLAGS.pad_seq_len,
+                num_classes=FLAGS.num_classes,
                 vocab_size=VOCAB_SIZE,
                 embedding_size=FLAGS.embedding_dim,
+                embedding_type=FLAGS.embedding_type,
                 filter_sizes=list(map(int, FLAGS.filter_sizes.split(","))),
                 num_filters=FLAGS.num_filters,
                 l2_reg_lambda=FLAGS.l2_reg_lambda,
@@ -114,15 +115,16 @@ def train_cnn():
 
             # Summaries for loss and accuracy
             loss_summary = tf.summary.scalar("loss", cnn.loss)
-            acc_summary = tf.summary.scalar("accuracy", cnn.accuracy)
+
+            # acc_summary = tf.summary.scalar("accuracy", cnn.accuracy)
 
             # Train Summaries
-            train_summary_op = tf.summary.merge([loss_summary, acc_summary, grad_summaries_merged])
+            train_summary_op = tf.summary.merge([loss_summary, grad_summaries_merged])
             train_summary_dir = os.path.join(out_dir, "summaries", "train")
             train_summary_writer = tf.summary.FileWriter(train_summary_dir, sess.graph)
 
             # Validation summaries
-            validation_summary_op = tf.summary.merge([loss_summary, acc_summary])
+            validation_summary_op = tf.summary.merge([loss_summary])
             validation_summary_dir = os.path.join(out_dir, "summaries", "validation")
             validation_summary_writer = tf.summary.FileWriter(validation_summary_dir, sess.graph)
 

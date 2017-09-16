@@ -54,8 +54,8 @@ class TextCNN(object):
     """
 
     def __init__(
-            self, sequence_length, num_classes, vocab_size,
-            embedding_size, filter_sizes, num_filters, l2_reg_lambda=0.0, pretrained_embedding=None):
+            self, sequence_length, num_classes, vocab_size, embedding_size,
+            embedding_type, filter_sizes, num_filters, l2_reg_lambda=0.0, pretrained_embedding=None):
 
         # Placeholders for input, output and dropout
         self.input_x = tf.placeholder(tf.int32, [None, sequence_length], name="input_x")
@@ -65,8 +65,6 @@ class TextCNN(object):
         # Keeping track of l2 regularization loss (optional)
         l2_loss = tf.constant(0.0)
 
-        # Vector = load_word2vec(TEXT_DATA_DIR, WORD2VEC_DIR, DICTIONARY_DIR, vocab_size, embedding_size)
-
         # Embedding layer
         with tf.device('/cpu:0'), tf.name_scope("embedding"):
             # 默认采用的是随机生成正态分布的词向量。
@@ -74,8 +72,12 @@ class TextCNN(object):
             if pretrained_embedding is None:
                 self.W = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), name="W")
             else:
-                self.W = tf.Variable(pretrained_embedding, name="W", trainable=True)
-                self.W = tf.cast(self.W, tf.float32)
+                if embedding_type == 0:
+                    self.W = tf.constant(pretrained_embedding, name="W")
+                    self.W = tf.cast(self.W, tf.float32)
+                if embedding_type == 1:
+                    self.W = tf.Variable(pretrained_embedding, name="W", trainable=True)
+                    self.W = tf.cast(self.W, tf.float32)
             self.embedded_chars = tf.nn.embedding_lookup(self.W, self.input_x)
             self.embedded_chars_expanded = tf.expand_dims(self.embedded_chars, -1)
 
@@ -85,7 +87,8 @@ class TextCNN(object):
         for i, filter_size in enumerate(filter_sizes):
             with tf.name_scope("conv-maxpool-{}".format(filter_size)):
                 # Convolution Layer
-                filter_shape = [filter_size, embedding_size, 1, num_filters]
+                filter_shape = tf.Variable([filter_size, embedding_size, 1, num_filters],
+                                           name="filter-{}".format(filter_size))
                 W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name="W")
                 b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name="b")
                 conv_front = tf.nn.conv2d(
@@ -138,8 +141,9 @@ class TextCNN(object):
 
         # CalculateMean cross-entropy loss
         with tf.name_scope("loss"):
-            losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.scores, labels=self.input_y)
+            losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=self.input_y, logits=self.scores)
             self.loss = tf.reduce_mean(losses) + l2_reg_lambda * l2_loss
+            # self.loss = tf.reduce_mean(losses)
 
         # Accuracy
         with tf.name_scope("accuracy"):
