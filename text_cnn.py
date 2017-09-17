@@ -87,11 +87,10 @@ class TextCNN(object):
         for i, filter_size in enumerate(filter_sizes):
             with tf.name_scope("conv-maxpool-{}".format(filter_size)):
                 # Convolution Layer
-                filter_shape = tf.Variable([filter_size, embedding_size, 1, num_filters],
-                                           name="filter-{}".format(filter_size))
+                filter_shape = [filter_size, embedding_size, 1, num_filters]
                 W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name="W")
                 b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name="b")
-                conv_front = tf.nn.conv2d(
+                conv = tf.nn.conv2d(
                     self.embedded_chars_expanded,
                     W,
                     strides=[1, 1, 1, 1],
@@ -99,15 +98,15 @@ class TextCNN(object):
                     name="conv")
 
                 # Apply nonlinearity
-                h_front = tf.nn.relu(tf.nn.bias_add(conv_front, b), name="relu_front")
+                h = tf.nn.relu(tf.nn.bias_add(conv, b), name="relu_front")
 
                 # Maxpooling over the outputs
                 pooled = tf.nn.max_pool(
-                    h_front,
+                    h,
                     ksize=[1, sequence_length - filter_size + 1, 1, 1],
                     strides=[1, 1, 1, 1],
                     padding="VALID",
-                    name="pool_front")
+                    name="pool")
 
                 pooled_outputs.append(pooled)
 
@@ -128,12 +127,13 @@ class TextCNN(object):
         with tf.name_scope("output"):
             W = tf.get_variable(
                 "W",
-                shape=[num_filters_total * 2, num_classes],
+                shape=[num_filters_total, num_classes],
                 initializer=tf.contrib.layers.xavier_initializer())
             b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
             l2_loss += tf.nn.l2_loss(W)
             l2_loss += tf.nn.l2_loss(b)
-            self.scores = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
+            self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="logits")
+
             self.softmaxScores = tf.nn.softmax(self.scores, name="softmaxScores")
             self.sigmoidScores = tf.nn.sigmoid(self.scores, name="sigmoidScores")
             self.predictions = tf.argmax(self.scores, 1, name="predictions")
@@ -141,9 +141,9 @@ class TextCNN(object):
 
         # CalculateMean cross-entropy loss
         with tf.name_scope("loss"):
-            losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=self.input_y, logits=self.scores)
+            losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=self.input_y, logits=self.logits)
+            losses = tf.reduce_sum(losses, axis=1)
             self.loss = tf.reduce_mean(losses) + l2_reg_lambda * l2_loss
-            # self.loss = tf.reduce_mean(losses)
 
         # Accuracy
         with tf.name_scope("accuracy"):
