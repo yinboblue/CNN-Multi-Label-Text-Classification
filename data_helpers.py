@@ -35,7 +35,7 @@ def get_label_using_logits(logits, top_number=1):
     return predicted_labels
 
 
-def cal_acc(predicted_labels, labels):
+def cal_rec_and_acc(predicted_labels, labels):
     label_no_zero = []
     for index, label in enumerate(labels):
         if int(label) == 1:
@@ -44,7 +44,9 @@ def cal_acc(predicted_labels, labels):
     for predicted_label in predicted_labels:
         if int(predicted_label) in label_no_zero:
             count += 1
-    return count / len(label_no_zero)
+    rec = count / len(label_no_zero)
+    acc = count / len(predicted_labels)
+    return rec, acc
 
 
 def create_word2vec_model(embedding_size, input_file=TEXT_DIR):

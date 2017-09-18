@@ -35,7 +35,7 @@ tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 
 # Training parameters
 tf.flags.DEFINE_integer("batch_size", 256, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 50, "Number of training epochs (default: 200)")
-tf.flags.DEFINE_integer("evaluate_every", 1000, "Evaluate model on dev set after this many steps (default: 100)")
+tf.flags.DEFINE_integer("evaluate_every", 500, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
 tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
@@ -153,32 +153,46 @@ def train_cnn():
                                  .format(time_str, step, loss))
                 train_summary_writer.add_summary(summaries, step)
 
-            def validation_step(x_batch, y_batch, writer=None):
+            def validation_step(x_validation, y_validation, writer=None):
                 """Evaluates model on a validation set"""
-                feed_dict = {
-                    cnn.input_x: x_batch,
-                    cnn.input_y: y_batch,
-                    cnn.dropout_keep_prob: 1.0
-                }
-                step, summaries, logits, loss = sess.run(
-                    [global_step, validation_summary_op, cnn.logits, cnn.loss], feed_dict)
+                batches_validation = data_helpers.batch_iter(
+                    list(zip(x_validation, y_validation)), 8 * FLAGS.batch_size, FLAGS.num_epochs)
+                eval_loss, eval_rec, eval_acc, eval_counter = 0.0, 0.0, 0.0, 0
+                for batch_validation in batches_validation:
+                    x_batch_validation, y_batch_validation = zip(*batch_validation)
+                    feed_dict = {
+                        cnn.input_x: x_batch_validation,
+                        cnn.input_y: y_batch_validation,
+                        cnn.dropout_keep_prob: 1.0
+                    }
+                    step, summaries, logits, cur_loss = sess.run(
+                        [global_step, validation_summary_op, cnn.logits, cnn.loss], feed_dict)
 
-                predicted_labels = data_helpers.get_label_using_logits(logits, top_number=1)
-                accuracy = 0.0
-                for index, predicted_label in enumerate(predicted_labels):
-                    accuracy += data_helpers.cal_acc(predicted_label, y_batch[index])
-                accuracy = accuracy / len(y_batch)
+                    predicted_labels = data_helpers.get_label_using_logits(logits, top_number=1)
+                    cur_rec, cur_acc = 0.0, 0.0
+                    for index, predicted_label in enumerate(predicted_labels):
+                        rec_inc, acc_inc = data_helpers.cal_rec_and_acc(predicted_label, y_batch_validation[index])
+                        cur_rec, cur_acc = cur_rec + rec_inc, cur_acc + acc_inc
 
-                if writer:
-                    writer.add_summary(summaries, step)
-                return loss, accuracy
+                    cur_rec = cur_rec / len(y_batch_validation)
+                    cur_acc = cur_acc / len(y_batch_validation)
+                    
+                    eval_loss, eval_rec, eval_acc, eval_counter = eval_loss + cur_loss, eval_rec + cur_rec, \
+                                                                  eval_acc + cur_acc, eval_counter + 1
+                    logging.info("✔︎ validation batch {} finished.".format(eval_counter))
+
+                    if writer:
+                        writer.add_summary(summaries, step)
+
+                eval_loss = float(eval_loss / eval_counter)
+                eval_rec = float(eval_rec / eval_counter)
+                eval_acc = float(eval_acc / eval_counter)
+
+                return eval_loss, eval_rec, eval_acc
 
             # Generate batches
             batches_train = data_helpers.batch_iter(
                 list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
-
-            batches_validation = data_helpers.batch_iter(
-                list(zip(x_validation, y_validation)), FLAGS.batch_size, FLAGS.num_epochs)
 
             # Training loop. For each batch...
             for batch_train in batches_train:
@@ -187,22 +201,11 @@ def train_cnn():
                 current_step = tf.train.global_step(sess, global_step)
 
                 if current_step % FLAGS.evaluate_every == 0:
-                    eval_loss, eval_acc, eval_counter = 0.0, 0.0, 0
                     logging.info("\nEvaluation:")
-                    for batch_validation in batches_validation:
-                        x_batch_validation, y_batch_validation = zip(*batch_validation)
-                        cur_loss, cur_acc = validation_step(x_batch_validation, y_batch_validation,
-                                                            writer=validation_summary_writer)
-                        eval_loss, eval_acc, eval_counter = eval_loss + cur_loss, eval_acc + cur_acc, \
-                                                            eval_counter + 1
-                        logging.info("✔︎ validation batch {} finished.".format(eval_counter))
+                    eval_loss, eval_rec, eval_acc = validation_step(x_validation, y_validation, writer=validation_summary_writer)
                     time_str = datetime.datetime.now().isoformat()
-
-                    eval_loss = float(eval_loss / eval_counter) if eval_counter != 0 else 0
-                    eval_acc = float(eval_acc / eval_counter) if eval_counter != 0 else 0
-
-                    logging.critical("{}: step {}, loss {:g}, acc {:g}"
-                                     .format(time_str, current_step, eval_loss, eval_acc))
+                    logging.critical("{}: step {}, loss {:g}, rec {:g}, acc {:g}"
+                                     .format(time_str, current_step, eval_loss, eval_rec, eval_acc))
 
                 if current_step % FLAGS.checkpoint_every == 0:
                     path = saver.save(sess, checkpoint_prefix, global_step=current_step)
