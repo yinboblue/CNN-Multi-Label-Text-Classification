@@ -25,6 +25,28 @@ BASE_DIR = os.getcwd()
 TEXT_DIR = BASE_DIR + '/content.txt'
 
 
+def get_label_using_logits(logits, top_number=1):
+    logits = np.ndarray.tolist(logits)
+    predicted_labels = []
+    for item in logits:
+        index_list = np.argsort(item)[-top_number:]
+        index_list = index_list[::-1]
+        predicted_labels.append(np.ndarray.tolist(index_list))
+    return predicted_labels
+
+
+def cal_acc(predicted_labels, labels):
+    label_no_zero = []
+    for index, label in enumerate(labels):
+        if int(label) == 1:
+            label_no_zero.append(index)
+    count = 0
+    for predicted_label in predicted_labels:
+        if int(predicted_label) in label_no_zero:
+            count += 1
+    return count / len(label_no_zero)
+
+
 def create_word2vec_model(embedding_size, input_file=TEXT_DIR):
     """
     Create the word2vec model based on the given embedding size and the corpus file.

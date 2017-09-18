@@ -2,7 +2,6 @@
 
 import tensorflow as tf
 
-
 def linear(input_, output_size, scope=None):
     """
     Linear map: output[k] = sum_i(Matrix[k, i] * args[i] ) + Bias[k]
@@ -134,22 +133,8 @@ class TextCNN(object):
             l2_loss += tf.nn.l2_loss(b)
             self.logits = tf.nn.xw_plus_b(self.h_drop, W, b, name="logits")
 
-            self.softmaxScores = tf.nn.softmax(self.scores, name="softmaxScores")
-            self.sigmoidScores = tf.nn.sigmoid(self.scores, name="sigmoidScores")
-            self.predictions = tf.argmax(self.scores, 1, name="predictions")
-            self.topKPreds = tf.nn.top_k(self.softmaxScores, k=1, sorted=True, name="topKPreds")
-
         # CalculateMean cross-entropy loss
         with tf.name_scope("loss"):
             losses = tf.nn.sigmoid_cross_entropy_with_logits(labels=self.input_y, logits=self.logits)
             losses = tf.reduce_sum(losses, axis=1)
             self.loss = tf.reduce_mean(losses) + l2_reg_lambda * l2_loss
-
-        # Accuracy
-        with tf.name_scope("accuracy"):
-            correct_predictions = tf.equal(self.predictions, tf.argmax(self.input_y, 1))
-            self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, "float"), name="accuracy")
-
-        # AUC
-        with tf.name_scope("AUC"):
-            self.AUC = tf.contrib.metrics.streaming_auc(self.softmaxScores, self.input_y)

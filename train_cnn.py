@@ -33,10 +33,10 @@ tf.flags.DEFINE_float("dropout_keep_prob", 0.5, "Dropout keep probability (defau
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
 
 # Training parameters
-tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
-tf.flags.DEFINE_integer("num_epochs", 200, "Number of training epochs (default: 200)")
-tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
-tf.flags.DEFINE_integer("checkpoint_every", 100, "Save model after this many steps (default: 100)")
+tf.flags.DEFINE_integer("batch_size", 256, "Batch Size (default: 64)")
+tf.flags.DEFINE_integer("num_epochs", 50, "Number of training epochs (default: 200)")
+tf.flags.DEFINE_integer("evaluate_every", 1000, "Evaluate model on dev set after this many steps (default: 100)")
+tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
 tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
 
@@ -53,11 +53,11 @@ def train_cnn():
 
     logging.info('✔︎ Training data processing...')
     train_data = \
-        data_helpers.load_data_and_labels(FLAGS.training_data_file, FLAGS.num_labels, FLAGS.embedding_dim)
+        data_helpers.load_data_and_labels(FLAGS.training_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
 
     logging.info('✔︎ Validation data processing...')
     validation_data = \
-        data_helpers.load_data_and_labels(FLAGS.validation_data_file, FLAGS.num_labels, FLAGS.embedding_dim)
+        data_helpers.load_data_and_labels(FLAGS.validation_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
 
     logging.info('Recommand padding Sequence length is: {}'.format(FLAGS.pad_seq_len))
 
@@ -146,11 +146,11 @@ def train_cnn():
                     cnn.input_y: y_batch,
                     cnn.dropout_keep_prob: FLAGS.dropout_keep_prob
                 }
-                _, step, summaries, loss, accuracy = sess.run(
-                    [train_op, global_step, train_summary_op, cnn.loss, cnn.accuracy], feed_dict)
+                _, step, summaries, loss = sess.run(
+                    [train_op, global_step, train_summary_op, cnn.loss], feed_dict)
                 time_str = datetime.datetime.now().isoformat()
-                logging.critical("{}: step {}, loss {:g}, acc {:g}"
-                                 .format(time_str, step, loss, accuracy))
+                logging.critical("{}: step {}, loss {:g}"
+                                 .format(time_str, step, loss))
                 train_summary_writer.add_summary(summaries, step)
 
             def validation_step(x_batch, y_batch, writer=None):
@@ -160,28 +160,46 @@ def train_cnn():
                     cnn.input_y: y_batch,
                     cnn.dropout_keep_prob: 1.0
                 }
-                step, summaries, scores, predictions, topKPreds, loss, accuracy, auc = sess.run(
-                    [global_step, validation_summary_op, cnn.scores, cnn.predictions,
-                     cnn.topKPreds, cnn.loss, cnn.accuracy, cnn.AUC], feed_dict)
-                time_str = datetime.datetime.now().isoformat()
-                logging.critical("{}: step {}, loss {:g}, acc {:g}, AUC {}"
-                                 .format(time_str, step, loss, accuracy, auc))
+                step, summaries, logits, loss = sess.run(
+                    [global_step, validation_summary_op, cnn.logits, cnn.loss], feed_dict)
+
+                predicted_labels = data_helpers.get_label_using_logits(logits, top_number=1)
+                accuracy = 0.0
+                for index, predicted_label in enumerate(predicted_labels):
+                    accuracy += data_helpers.cal_acc(predicted_label, y_batch[index])
+                accuracy = accuracy / len(y_batch)
+
                 if writer:
                     writer.add_summary(summaries, step)
+                return loss, accuracy
 
             # Generate batches
-            batches = data_helpers.batch_iter(
-                list(zip(x_train_front, x_train_behind, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
+            batches_train = data_helpers.batch_iter(
+                list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
+
+            batches_validation = data_helpers.batch_iter(
+                list(zip(x_validation, y_validation)), FLAGS.batch_size, FLAGS.num_epochs)
+
             # Training loop. For each batch...
-            for batch in batches:
-                x_batch_front, x_batch_behind, y_batch = zip(*batch)
-                train_step(x_batch, y_batch)
+            for batch_train in batches_train:
+                x_batch_train, y_batch_train = zip(*batch_train)
+                train_step(x_batch_train, y_batch_train)
                 current_step = tf.train.global_step(sess, global_step)
+
                 if current_step % FLAGS.evaluate_every == 0:
+                    eval_loss, eval_acc, eval_counter = 0.0, 0.0, 0
                     logging.info("\nEvaluation:")
-                    validation_step(x_validation, y_validation,
-                                    writer=validation_summary_writer)
-                    logging.info("")
+                    for batch_validation in batches_validation:
+                        x_batch_validation, y_batch_validation = zip(*batch_validation)
+                        cur_loss, cur_acc = validation_step(x_batch_validation, y_batch_validation,
+                                                            writer=validation_summary_writer)
+                        eval_loss, eval_acc, eval_counter = eval_loss + cur_loss, eval_acc + cur_acc, \
+                                                            eval_counter + 1
+                    time_str = datetime.datetime.now().isoformat()
+                    logging.critical("{}: step {}, loss {:g}, acc {:g}"
+                                     .format(time_str, current_step, float(eval_counter / eval_counter),
+                                             float(eval_acc / eval_counter)))
+
                 if current_step % FLAGS.checkpoint_every == 0:
                     path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                     logging.critical("✔︎ Saved model checkpoint to {}\n".format(path))
