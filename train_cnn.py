@@ -195,6 +195,7 @@ def train_cnn():
                                                             writer=validation_summary_writer)
                         eval_loss, eval_acc, eval_counter = eval_loss + cur_loss, eval_acc + cur_acc, \
                                                             eval_counter + 1
+                        logging.info("✔︎ validation batch {} finished.".format(eval_counter))
                     time_str = datetime.datetime.now().isoformat()
                     logging.critical("{}: step {}, loss {:g}, acc {:g}"
                                      .format(time_str, current_step, float(eval_counter / eval_counter),
