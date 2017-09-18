@@ -197,9 +197,12 @@ def train_cnn():
                                                             eval_counter + 1
                         logging.info("✔︎ validation batch {} finished.".format(eval_counter))
                     time_str = datetime.datetime.now().isoformat()
+
+                    eval_loss = float(eval_loss / eval_counter) if eval_counter != 0 else 0
+                    eval_acc = float(eval_acc / eval_counter) if eval_counter != 0 else 0
+
                     logging.critical("{}: step {}, loss {:g}, acc {:g}"
-                                     .format(time_str, current_step, float(eval_counter / eval_counter),
-                                             float(eval_acc / eval_counter)))
+                                     .format(time_str, current_step, eval_loss, eval_acc))
 
                 if current_step % FLAGS.checkpoint_every == 0:
                     path = saver.save(sess, checkpoint_prefix, global_step=current_step)
