@@ -35,6 +35,7 @@ tf.flags.DEFINE_integer("evaluate_every", 500, "Evaluate model on dev set after 
 tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
 tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
+tf.flags.DEFINE_integer("top_num", 2, "Number of top K prediction classess (default: 3)")
 
 # Misc Parameters
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
@@ -170,7 +171,7 @@ def train_cnn():
                     step, summaries, logits, cur_loss = sess.run(
                         [global_step, validation_summary_op, cnn.logits, cnn.loss], feed_dict)
 
-                    predicted_labels = data_helpers.get_label_using_logits(logits, top_number=1)
+                    predicted_labels = data_helpers.get_label_using_logits(logits, top_number=FLAGS.top_num)
                     cur_rec, cur_acc = 0.0, 0.0
                     for index, predicted_label in enumerate(predicted_labels):
                         rec_inc, acc_inc = data_helpers.cal_rec_and_acc(predicted_label, y_batch_validation[index])
