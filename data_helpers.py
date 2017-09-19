@@ -2,27 +2,27 @@
 
 import os
 import multiprocessing
-import numpy as np
-import random
 import gensim
 import logging
 import json
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patheffects as PathEffects
 
 from pylab import *
 from gensim.models import word2vec
-from tflearn.data_utils import to_categorical, pad_sequences
-from sklearn.manifold import TSNE
+from tflearn.data_utils import pad_sequences
 
-logging.getLogger().setLevel(logging.INFO)
 
-mpl.rcParams['font.sans-serif'] = ['FangSong']  # 指定默认字体
-mpl.rcParams['axes.unicode_minus'] = False  # 解决保存图像是负号'-'显示为方块的问题
+TEXT_DIR = 'content.txt'
 
-BASE_DIR = os.getcwd()
-TEXT_DIR = BASE_DIR + '/content.txt'
+
+def logger_fn(name, file, level=logging.INFO):
+    tf_logger = logging.getLogger(name)
+    tf_logger.setLevel(level)
+    fh = logging.FileHandler(file, mode='w')
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    fh.setFormatter(formatter)
+    tf_logger.addHandler(fh)
+    return tf_logger
 
 
 def get_label_using_logits(logits, top_number=1):
@@ -55,7 +55,7 @@ def create_word2vec_model(embedding_size, input_file=TEXT_DIR):
     :param embedding_size: The embedding size
     :param input_file: The corpus file
     """
-    word2vec_file = BASE_DIR + '/word2vec_' + str(embedding_size) + '.model'
+    word2vec_file = 'word2vec_' + str(embedding_size) + '.model'
 
     if os.path.isfile(word2vec_file):
         logging.info('☛ The word2vec model you want create already exists!')
@@ -73,7 +73,7 @@ def load_vocab_size(embedding_size):
     :param embedding_size: The embedding size
     :return: The vocab size of the word2vec file
     """
-    word2vec_file = BASE_DIR + '/word2vec_' + str(embedding_size) + '.model'
+    word2vec_file = 'word2vec_' + str(embedding_size) + '.model'
 
     if os.path.isfile(word2vec_file):
         model = word2vec.Word2Vec.load(word2vec_file)
@@ -197,7 +197,7 @@ def load_word2vec_matrix(vocab_size, embedding_size):
     :param embedding_size: The embedding size
     :return: The word2vec model matrix
     """
-    word2vec_file = BASE_DIR + '/word2vec_' + str(embedding_size) + '.model'
+    word2vec_file = 'word2vec_' + str(embedding_size) + '.model'
 
     if os.path.isfile(word2vec_file):
         model = gensim.models.Word2Vec.load(word2vec_file)
@@ -220,7 +220,7 @@ def load_data_and_labels(data_file, num_labels, embedding_size):
     :param embedding_size: The embedding size
     :returns: The class data and the max sentence length of the research data
     """
-    word2vec_file = BASE_DIR + '/word2vec_' + str(embedding_size) + '.model'
+    word2vec_file = 'word2vec_' + str(embedding_size) + '.model'
 
     # Load word2vec model file
     if os.path.isfile(word2vec_file):
@@ -283,43 +283,6 @@ def plot_seq_len(data_file, data, percentage=0.98):
     plt.bar(x, y)
     plt.savefig(output_file)
     plt.close()
-
-
-def plot_word2vec(word2vec_file):
-    """
-    Visualizing the data info of the word2vec model based on t-SNE.
-    :param word2vec_file: The word2vec model file
-    """
-    model = gensim.models.Word2Vec.load(word2vec_file)
-    data_x = []
-    data_y = []
-    for index, item in enumerate(model.wv.vocab):
-        data_x.append(model[item])
-        data_y.append(item)
-    tsne = TSNE(n_components=2)
-    x_tsne = tsne.fit_transform(data_x)
-
-    def scatter(x, y):
-        f = plt.figure(figsize=(50, 50))
-        ax = plt.subplot(aspect='equal')
-        sc = ax.scatter(x[:, 0], x[:, 1], lw=0, s=40)
-        plt.xlim(-25, 25)
-        plt.ylim(-25, 25)
-        ax.axis('off')
-        ax.axis('tight')
-        txts = []
-        for i in range(len(y)):
-            # Position of each label.
-            if i % 20 == 0:
-                txt = ax.text(x[i, 0], x[i, 1], y[i], fontsize=10)
-                txt.set_path_effects([
-                    PathEffects.Stroke(linewidth=5, foreground="w"),
-                    PathEffects.Normal()])
-                txts.append(txt)
-        return f, ax, sc, txts
-
-    scatter(x_tsne, data_y)
-    plt.savefig('word_vector.png', dpi=150)
 
 
 def batch_iter(data, batch_size, num_epochs, shuffle=True):

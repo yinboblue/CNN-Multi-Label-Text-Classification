@@ -2,6 +2,7 @@
 
 import tensorflow as tf
 
+
 def linear(input_, output_size, scope=None):
     """
     Linear map: output[k] = sum_i(Matrix[k, i] * args[i] ) + Bias[k]

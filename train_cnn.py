@@ -3,21 +3,17 @@
 import os
 import time
 import datetime
-import logging
 import tensorflow as tf
 import data_helpers
 from text_cnn import TextCNN
 
-logging.getLogger().setLevel(logging.INFO)
+logger = data_helpers.logger_fn('tflog', 'training-{}.log'.format(time.asctime()))
 
 # Parameters
 # ==================================================
 
-FLAGS = tf.flags.FLAGS
-BASE_DIR = os.getcwd()
-
-TRAININGSET_DIR = BASE_DIR + '/Train.json'
-VALIDATIONSET_DIR = BASE_DIR + '/Test.json'
+TRAININGSET_DIR = 'Train.json'
+VALIDATIONSET_DIR = 'Test.json'
 
 # Data loading params
 tf.flags.DEFINE_string("training_data_file", TRAININGSET_DIR, "Data source for the training data.")
@@ -45,27 +41,33 @@ tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device 
 tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
 tf.flags.DEFINE_boolean("gpu_options_allow_growth", True, "Allow gpu options growth")
 
+FLAGS = tf.flags.FLAGS
+FLAGS._parse_flags()
+dilim = '-' * 100
+logger.info('\n'.join([dilim, *['{:>50}|{:<50}'.format(attr.upper(), value)
+                                for attr, value in sorted(FLAGS.__flags.items())], dilim]))
+
 
 def train_cnn():
     """Training CNN model."""
     # Load sentences, labels, and training parameters
-    logging.info('✔︎ Loading data...')
+    logger.info('✔︎ Loading data...')
 
-    logging.info('✔︎ Training data processing...')
+    logger.info('✔︎ Training data processing...')
     train_data = \
         data_helpers.load_data_and_labels(FLAGS.training_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
 
-    logging.info('✔︎ Validation data processing...')
+    logger.info('✔︎ Validation data processing...')
     validation_data = \
         data_helpers.load_data_and_labels(FLAGS.validation_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
 
-    logging.info('Recommand padding Sequence length is: {}'.format(FLAGS.pad_seq_len))
+    logger.info('Recommand padding Sequence length is: {}'.format(FLAGS.pad_seq_len))
 
-    logging.info('✔︎ Training data padding...')
+    logger.info('✔︎ Training data padding...')
     x_train, y_train = \
         data_helpers.pad_data(train_data, FLAGS.pad_seq_len)
 
-    logging.info('✔︎ Validation data padding...')
+    logger.info('✔︎ Validation data padding...')
     x_validation, y_validation = \
         data_helpers.pad_data(validation_data, FLAGS.pad_seq_len)
 
@@ -111,7 +113,7 @@ def train_cnn():
             # Output directory for models and summaries
             timestamp = str(int(time.time()))
             out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs", timestamp))
-            logging.info("✔︎ Writing to {}\n".format(out_dir))
+            logger.info("✔︎ Writing to {}\n".format(out_dir))
 
             # Summaries for loss and accuracy
             loss_summary = tf.summary.scalar("loss", cnn.loss)
@@ -149,7 +151,7 @@ def train_cnn():
                 _, step, summaries, loss = sess.run(
                     [train_op, global_step, train_summary_op, cnn.loss], feed_dict)
                 time_str = datetime.datetime.now().isoformat()
-                logging.critical("{}: step {}, loss {:g}"
+                logger.info("{}: step {}, loss {:g}"
                                  .format(time_str, step, loss))
                 train_summary_writer.add_summary(summaries, step)
 
@@ -179,7 +181,7 @@ def train_cnn():
                     
                     eval_loss, eval_rec, eval_acc, eval_counter = eval_loss + cur_loss, eval_rec + cur_rec, \
                                                                   eval_acc + cur_acc, eval_counter + 1
-                    logging.info("✔︎ validation batch {} finished.".format(eval_counter))
+                    logger.info("✔︎ validation batch {} finished.".format(eval_counter))
 
                     if writer:
                         writer.add_summary(summaries, step)
@@ -201,17 +203,17 @@ def train_cnn():
                 current_step = tf.train.global_step(sess, global_step)
 
                 if current_step % FLAGS.evaluate_every == 0:
-                    logging.info("\nEvaluation:")
+                    logger.info("\nEvaluation:")
                     eval_loss, eval_rec, eval_acc = validation_step(x_validation, y_validation, writer=validation_summary_writer)
                     time_str = datetime.datetime.now().isoformat()
-                    logging.critical("{}: step {}, loss {:g}, rec {:g}, acc {:g}"
+                    logger.info("{}: step {}, loss {:g}, rec {:g}, acc {:g}"
                                      .format(time_str, current_step, eval_loss, eval_rec, eval_acc))
 
                 if current_step % FLAGS.checkpoint_every == 0:
                     path = saver.save(sess, checkpoint_prefix, global_step=current_step)
-                    logging.critical("✔︎ Saved model checkpoint to {}\n".format(path))
+                    logger.info("✔︎ Saved model checkpoint to {}\n".format(path))
 
-    logging.info("✔︎ Done.")
+    logger.info("✔︎ Done.")
 
 
 if __name__ == '__main__':
