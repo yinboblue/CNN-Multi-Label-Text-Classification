@@ -3,21 +3,34 @@
 import os
 import time
 import datetime
+import logging
 import tensorflow as tf
 import data_helpers
 from text_cnn import TextCNN
 
-logger = data_helpers.logger_fn('tflog', 'training-{}.log'.format(time.asctime()))
-
 # Parameters
 # ==================================================
 
+train_or_restore = input("☛ Train or Restore?(T/R) \n")
+
+while not (train_or_restore.isalpha() and train_or_restore.upper() in ['T', 'R']):
+    train_or_restore = input('✘ The format of your input is illegal, please re-input: ')
+logging.info('✔︎ The format of your input is legal, now loading to next step...')
+
+train_or_restore = train_or_restore.upper()
+
+if train_or_restore == 'T':
+    logger = data_helpers.logger_fn('tflog', 'training-{}.log'.format(time.asctime()))
+if train_or_restore == 'R':
+    logger = data_helpers.logger_fn('tflog', 'restore-{}.log'.format(time.asctime()))
+
 TRAININGSET_DIR = 'Train.json'
-VALIDATIONSET_DIR = 'Test.json'
+VALIDATIONSET_DIR = 'Validation.json'
 
 # Data loading params
 tf.flags.DEFINE_string("training_data_file", TRAININGSET_DIR, "Data source for the training data.")
 tf.flags.DEFINE_string("validation_data_file", VALIDATIONSET_DIR, "Data source for the validation data.")
+tf.flags.DEFINE_string("restore_or_not", train_or_restore, "Use the model or not(default: False)")
 
 # Model Hyperparameterss
 tf.flags.DEFINE_integer("pad_seq_len", 150, "Recommand padding Sequence length of data (depends on the data)")
@@ -31,7 +44,7 @@ tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 
 # Training parameters
 tf.flags.DEFINE_integer("batch_size", 256, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("num_epochs", 50, "Number of training epochs (default: 200)")
-tf.flags.DEFINE_integer("evaluate_every", 500, "Evaluate model on dev set after this many steps (default: 100)")
+tf.flags.DEFINE_integer("evaluate_every", 5000, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 1000, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
 tf.flags.DEFINE_integer("num_classes", 367, "Number of labels (depends on the task)")
@@ -96,10 +109,9 @@ def train_cnn():
                 pretrained_embedding=pretrained_word2vec_matrix)
 
             # Define Training procedure
-            global_step = tf.Variable(0, name="global_step", trainable=False)
             optimizer = tf.train.AdamOptimizer(1e-3)
             grads_and_vars = optimizer.compute_gradients(cnn.loss)
-            train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step, name="train_op")
+            train_op = optimizer.apply_gradients(grads_and_vars, global_step=cnn.global_step, name="train_op")
 
             # Keep track of gradient values and sparsity (optional)
             grad_summaries = []
@@ -112,13 +124,24 @@ def train_cnn():
             grad_summaries_merged = tf.summary.merge(grad_summaries)
 
             # Output directory for models and summaries
-            timestamp = str(int(time.time()))
-            out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs", timestamp))
-            logger.info("✔︎ Writing to {}\n".format(out_dir))
+            if FLAGS.restore_or_not == 'R':
+                MODEL = input("☛ Please input the checkpoints model you want to restore: ")  # 需要恢复的网络模型
+
+                while not (MODEL.isdigit() and len(MODEL) == 10):
+                    MODEL = input('✘ The format of your input is illegal, please re-input: ')
+                logger.info('✔︎ The format of your input is legal, now loading to next step...')
+
+                checkpoint_dir = 'runs/' + MODEL + '/checkpoints/'
+
+                out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs", MODEL))
+                logger.info("✔︎ Writing to {}\n".format(out_dir))
+            else:
+                timestamp = str(int(time.time()))
+                out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs", timestamp))
+                logger.info("✔︎ Writing to {}\n".format(out_dir))
 
             # Summaries for loss and accuracy
             loss_summary = tf.summary.scalar("loss", cnn.loss)
-
             # acc_summary = tf.summary.scalar("accuracy", cnn.accuracy)
 
             # Train Summaries
@@ -131,16 +154,25 @@ def train_cnn():
             validation_summary_dir = os.path.join(out_dir, "summaries", "validation")
             validation_summary_writer = tf.summary.FileWriter(validation_summary_dir, sess.graph)
 
-            # Checkpoint directory. Tensorflow assumes this directory already exists so we need to create it
-            checkpoint_dir = os.path.abspath(os.path.join(out_dir, "checkpoints"))
-            checkpoint_prefix = os.path.join(checkpoint_dir, "model")
-            if not os.path.exists(checkpoint_dir):
-                os.makedirs(checkpoint_dir)
             saver = tf.train.Saver(tf.global_variables(), max_to_keep=FLAGS.num_checkpoints)
 
-            # Initialize all variables
-            sess.run(tf.global_variables_initializer())
-            sess.run(tf.local_variables_initializer())
+            if FLAGS.restore_or_not == 'R':
+                # Load cnn model
+                logger.info("✔ Loading model...")
+                checkpoint_file = tf.train.latest_checkpoint(checkpoint_dir)
+                logger.info(checkpoint_file)
+
+                # Load the saved meta graph and restore variables
+                saver = tf.train.import_meta_graph("{}.meta".format(checkpoint_file))
+                saver.restore(sess, checkpoint_file)
+            else:
+                checkpoint_dir = os.path.abspath(os.path.join(out_dir, "checkpoints"))
+                if not os.path.exists(checkpoint_dir):
+                    os.makedirs(checkpoint_dir)
+                sess.run(tf.global_variables_initializer())
+                sess.run(tf.local_variables_initializer())
+
+            current_step = sess.run(cnn.global_step)
 
             def train_step(x_batch, y_batch):
                 """A single training step"""
@@ -150,7 +182,7 @@ def train_cnn():
                     cnn.dropout_keep_prob: FLAGS.dropout_keep_prob
                 }
                 _, step, summaries, loss = sess.run(
-                    [train_op, global_step, train_summary_op, cnn.loss], feed_dict)
+                    [train_op, cnn.global_step, train_summary_op, cnn.loss], feed_dict)
                 time_str = datetime.datetime.now().isoformat()
                 logger.info("{}: step {}, loss {:g}"
                                  .format(time_str, step, loss))
@@ -169,7 +201,7 @@ def train_cnn():
                         cnn.dropout_keep_prob: 1.0
                     }
                     step, summaries, logits, cur_loss = sess.run(
-                        [global_step, validation_summary_op, cnn.logits, cnn.loss], feed_dict)
+                        [cnn.global_step, validation_summary_op, cnn.logits, cnn.loss], feed_dict)
 
                     predicted_labels = data_helpers.get_label_using_logits(logits, top_number=FLAGS.top_num)
                     cur_rec, cur_acc = 0.0, 0.0
@@ -201,16 +233,18 @@ def train_cnn():
             for batch_train in batches_train:
                 x_batch_train, y_batch_train = zip(*batch_train)
                 train_step(x_batch_train, y_batch_train)
-                current_step = tf.train.global_step(sess, global_step)
+                current_step = tf.train.global_step(sess, cnn.global_step)
 
                 if current_step % FLAGS.evaluate_every == 0:
                     logger.info("\nEvaluation:")
-                    eval_loss, eval_rec, eval_acc = validation_step(x_validation, y_validation, writer=validation_summary_writer)
+                    eval_loss, eval_rec, eval_acc = validation_step(x_validation, y_validation,
+                                                                    writer=validation_summary_writer)
                     time_str = datetime.datetime.now().isoformat()
                     logger.info("{}: step {}, loss {:g}, rec {:g}, acc {:g}"
-                                     .format(time_str, current_step, eval_loss, eval_rec, eval_acc))
+                                .format(time_str, current_step, eval_loss, eval_rec, eval_acc))
 
                 if current_step % FLAGS.checkpoint_every == 0:
+                    checkpoint_prefix = os.path.join(checkpoint_dir, "model")
                     path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                     logger.info("✔︎ Saved model checkpoint to {}\n".format(path))
 

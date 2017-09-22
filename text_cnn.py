@@ -39,8 +39,8 @@ def highway(input_, size, num_layers=1, bias=-2.0, f=tf.nn.relu, scope='Highway'
 
     with tf.variable_scope(scope):
         for idx in range(num_layers):
-            g = f(linear(input_, size, scope='highway_lin_%d' % idx))
-            t = tf.sigmoid(linear(input_, size, scope='highway_gate_%d' % idx) + bias)
+            g = f(linear(input_, size, scope='highway_lin_{}'.format(idx)))
+            t = tf.sigmoid(linear(input_, size, scope='highway_gate_{}'.format(idx)) + bias)
             output = t * g + (1. - t) * input_
             input_ = output
 
@@ -61,6 +61,8 @@ class TextCNN(object):
         self.input_x = tf.placeholder(tf.int32, [None, sequence_length], name="input_x")
         self.input_y = tf.placeholder(tf.float32, [None, num_classes], name="input_y")
         self.dropout_keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")
+
+        self.global_step = tf.Variable(0, trainable=False, name="global_Step")
 
         # Keeping track of l2 regularization loss (optional)
         l2_loss = tf.constant(0.0)
