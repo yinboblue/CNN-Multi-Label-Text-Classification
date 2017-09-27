@@ -25,12 +25,12 @@ if train_or_restore == 'R':
     logger = data_helpers.logger_fn('tflog', 'restore-{}.log'.format(time.asctime()))
 
 TRAININGSET_DIR = 'Train.json'
-VALIDATIONSET_DIR = 'Validation.json'
+VALIDATIONSET_DIR = 'Validation_bind.json'
 
 # Data loading params
 tf.flags.DEFINE_string("training_data_file", TRAININGSET_DIR, "Data source for the training data.")
 tf.flags.DEFINE_string("validation_data_file", VALIDATIONSET_DIR, "Data source for the validation data.")
-tf.flags.DEFINE_string("restore_or_not", train_or_restore, "Use the model or not(default: False)")
+tf.flags.DEFINE_string("train_or_restore", train_or_restore, "Use the model or not(default: False)")
 
 # Model Hyperparameterss
 tf.flags.DEFINE_integer("pad_seq_len", 150, "Recommand padding Sequence length of data (depends on the data)")
@@ -85,6 +85,14 @@ def train_cnn():
     x_validation, y_validation = \
         data_helpers.pad_data(validation_data, FLAGS.pad_seq_len)
 
+    y_validation_bind = validation_data.labels_bind
+
+    # batches_validation = data_helpers.batch_iter(list(zip(x_validation, y_validation, y_validation_bind)),
+    #                                              8 * FLAGS.batch_size, FLAGS.num_epochs)
+    # for batch_validation in batches_validation:
+    #     x_batch_validation, y_batch_validation, y_validation_bind = zip(*batch_validation)
+    #     print(x_batch_validation, y_validation, y_validation_bind)
+
     # Build vocabulary
     VOCAB_SIZE = data_helpers.load_vocab_size(FLAGS.embedding_dim)
     pretrained_word2vec_matrix = data_helpers.load_word2vec_matrix(VOCAB_SIZE, FLAGS.embedding_dim)
@@ -124,7 +132,7 @@ def train_cnn():
             grad_summaries_merged = tf.summary.merge(grad_summaries)
 
             # Output directory for models and summaries
-            if FLAGS.restore_or_not == 'R':
+            if FLAGS.train_or_restore == 'R':
                 MODEL = input("☛ Please input the checkpoints model you want to restore: ")  # 需要恢复的网络模型
 
                 while not (MODEL.isdigit() and len(MODEL) == 10):
@@ -156,7 +164,7 @@ def train_cnn():
 
             saver = tf.train.Saver(tf.global_variables(), max_to_keep=FLAGS.num_checkpoints)
 
-            if FLAGS.restore_or_not == 'R':
+            if FLAGS.train_or_restore == 'R':
                 # Load cnn model
                 logger.info("✔ Loading model...")
                 checkpoint_file = tf.train.latest_checkpoint(checkpoint_dir)
@@ -188,13 +196,13 @@ def train_cnn():
                                  .format(time_str, step, loss))
                 train_summary_writer.add_summary(summaries, step)
 
-            def validation_step(x_validation, y_validation, writer=None):
+            def validation_step(x_validation, y_validation, y_validation_bind, writer=None):
                 """Evaluates model on a validation set"""
                 batches_validation = data_helpers.batch_iter(
-                    list(zip(x_validation, y_validation)), 8 * FLAGS.batch_size, FLAGS.num_epochs)
+                    list(zip(x_validation, y_validation, y_validation_bind)), 8 * FLAGS.batch_size, FLAGS.num_epochs)
                 eval_loss, eval_rec, eval_acc, eval_counter = 0.0, 0.0, 0.0, 0
                 for batch_validation in batches_validation:
-                    x_batch_validation, y_batch_validation = zip(*batch_validation)
+                    x_batch_validation, y_batch_validation, y_batch_validation_bind = zip(*batch_validation)
                     feed_dict = {
                         cnn.input_x: x_batch_validation,
                         cnn.input_y: y_batch_validation,
@@ -203,7 +211,8 @@ def train_cnn():
                     step, summaries, logits, cur_loss = sess.run(
                         [cnn.global_step, validation_summary_op, cnn.logits, cnn.loss], feed_dict)
 
-                    predicted_labels = data_helpers.get_label_using_logits(logits, top_number=FLAGS.top_num)
+                    predicted_labels = data_helpers.get_label_using_logits(logits, y_batch_validation_bind,
+                                                                           top_number=FLAGS.top_num)
                     cur_rec, cur_acc = 0.0, 0.0
                     for index, predicted_label in enumerate(predicted_labels):
                         rec_inc, acc_inc = data_helpers.cal_rec_and_acc(predicted_label, y_batch_validation[index])
@@ -211,7 +220,7 @@ def train_cnn():
 
                     cur_rec = cur_rec / len(y_batch_validation)
                     cur_acc = cur_acc / len(y_batch_validation)
-                    
+
                     eval_loss, eval_rec, eval_acc, eval_counter = eval_loss + cur_loss, eval_rec + cur_rec, \
                                                                   eval_acc + cur_acc, eval_counter + 1
                     logger.info("✔︎ validation batch {} finished.".format(eval_counter))
@@ -237,7 +246,7 @@ def train_cnn():
 
                 if current_step % FLAGS.evaluate_every == 0:
                     logger.info("\nEvaluation:")
-                    eval_loss, eval_rec, eval_acc = validation_step(x_validation, y_validation,
+                    eval_loss, eval_rec, eval_acc = validation_step(x_validation, y_validation, y_validation_bind,
                                                                     writer=validation_summary_writer)
                     time_str = datetime.datetime.now().isoformat()
                     logger.info("{}: step {}, loss {:g}, rec {:g}, acc {:g}"

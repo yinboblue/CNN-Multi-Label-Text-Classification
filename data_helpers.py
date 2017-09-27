@@ -7,6 +7,7 @@ import logging
 import json
 import numpy as np
 
+from operator import itemgetter
 from pylab import *
 from gensim.models import word2vec
 from tflearn.data_utils import pad_sequences
@@ -25,13 +26,22 @@ def logger_fn(name, file, level=logging.INFO):
     return tf_logger
 
 
-def get_label_using_logits(logits, top_number=1):
-    logits = np.ndarray.tolist(logits)
+def get_label_using_logits(logits, bind, top_number=1):
+    labels_bind =[]
     predicted_labels = []
-    for item in logits:
-        index_list = np.argsort(item)[-top_number:]
-        index_list = index_list[::-1]
-        predicted_labels.append(np.ndarray.tolist(index_list))
+    logits = np.ndarray.tolist(logits)
+    for index, item in enumerate(bind):
+        result = []
+        for i in item:
+            result.append((i, logits[index][i]))
+        labels_bind.append(result)
+    for item in labels_bind:
+        result = []
+        index_list = sorted(item, key=itemgetter(1), reverse=True)
+        index_list = index_list[:top_number]
+        for label in index_list:
+            result.append(label[0])
+        predicted_labels.append(result)
     return predicted_labels
 
 
@@ -41,6 +51,7 @@ def cal_rec_and_acc(predicted_labels, labels):
         if int(label) == 1:
             label_no_zero.append(index)
     count = 0
+    logging.info("predicted_labels:{}, origin_labels: {}".format(predicted_labels, label_no_zero))
     for predicted_label in predicted_labels:
         if int(predicted_label) in label_no_zero:
             count += 1
@@ -153,19 +164,24 @@ def data_word2vec(input_file, num_labels, word2vec_model):
 
     if input_file.endswith('.json'):
         with open(input_file) as fin:
-            labels = []
             content_indexlist = []
+            labels = []
+            labels_bind = []
             for index, eachline in enumerate(fin):
                 content = []
                 data = json.loads(eachline)
-                label_index = data['knows_index'].strip().split()
                 features_content = data['features_content'].strip().split()
+                label_index = data['knows_index'].strip().split()
 
                 for item in features_content:
                     content.append(item)
 
                 labels.append(create_label(label_index))
                 content_indexlist.append(token_to_index(content))
+
+                if 'knows_bind' in data.keys():
+                    labels_bind.append(data['knows_bind'])
+
             total_line = index + 1
 
         class Data:
@@ -177,12 +193,19 @@ def data_word2vec(input_file, num_labels, word2vec_model):
                 return total_line
 
             @property
+            def tokenindex(self):
+                return content_indexlist
+
+            @property
             def labels(self):
                 return labels
 
             @property
-            def tokenindex(self):
-                return content_indexlist
+            def labels_bind(self):
+                if labels_bind:
+                    return labels_bind
+                else:
+                    return None
 
         return Data()
     else:

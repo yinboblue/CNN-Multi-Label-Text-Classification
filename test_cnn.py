@@ -69,6 +69,8 @@ def test_cnn():
 
     x_test, y_test = data_helpers.pad_data(test_data, FLAGS.pad_seq_len)
 
+    y_test_bind = test_data.labels_bind
+
     # Build vocabulary
     VOCAB_SIZE = data_helpers.load_vocab_size(FLAGS.embedding_dim)
     pretrained_word2vec_matrix = data_helpers.load_word2vec_matrix(VOCAB_SIZE, FLAGS.embedding_dim)
@@ -103,19 +105,21 @@ def test_cnn():
             logits = graph.get_operation_by_name("output/logits").outputs[0]
 
             # Generate batches for one epoch
-            batches = data_helpers.batch_iter(list(zip(x_test, y_test)), FLAGS.batch_size, 1, shuffle=False)
+            batches = data_helpers.batch_iter(list(zip(x_test, y_test, y_test_bind)),
+                                              FLAGS.batch_size, 1, shuffle=False)
 
             # Collect the predictions here
             all_predicitons = []
             eval_loss, eval_rec, eval_acc, eval_counter = 0.0, 0.0, 0.0, 0
             for batch_test in batches:
-                x_batch_test, y_batch_test = zip(*batch_test)
+                x_batch_test, y_batch_test, y_batch_test_bind = zip(*batch_test)
                 feed_dict = {
                     input_x: x_batch_test,
                     dropout_keep_prob: 1.0
                 }
                 batch_logits = sess.run(logits, feed_dict)
-                predicted_labels = data_helpers.get_label_using_logits(np.ndarray(batch_logits), top_number=FLAGS.top_num)
+                predicted_labels = data_helpers.get_label_using_logits(batch_logits, y_batch_test_bind,
+                                                                       top_number=FLAGS.top_num)
                 all_predicitons = np.append(all_predicitons, predicted_labels)
                 cur_rec, cur_acc = 0.0, 0.0
                 for index, predicted_label in enumerate(predicted_labels):
