@@ -4,8 +4,6 @@ This project is my research group project, and it is also a study of TensorFlow,
 
 The main objective of the project is to solve the multi-label text classification problem based on Convolutional Neural Networks.
 
-The project refer to [dennybritz/cnn-text-classification-tf](https://github.com/dennybritz/cnn-text-classification-tf), make the data helper supports Chinese language (Task required) and modified the network structure (Based on my task).
-
 ## Requirements
 
 - Python 3.x
@@ -23,15 +21,18 @@ Research data may attract copyright protection under China law. Thus, there is o
 
 Use `gensim` package to pre-train my data.
 
-
 ## Network Structure
 
+![](https://farm5.staticflickr.com/4500/36676786824_2a45d53de3_o.png)
 
 ## Innovation
 
 1. Make the data support **Chinese** and English.(Which use `gensim` seems easy)
 2. Can use **your own pre-trained word vectors**.
 3. Add a new **Highway Layer**.
+4. Add **parent label bind** to limit the output of the prediction label.
+5. Can choose **train** the model directly or **restore** the model from checkpoint.  
+6. Add **model test code**. 
 
 
 ## References
