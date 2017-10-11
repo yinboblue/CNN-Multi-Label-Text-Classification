@@ -87,12 +87,6 @@ def train_cnn():
 
     y_validation_bind = validation_data.labels_bind
 
-    # batches_validation = data_helpers.batch_iter(list(zip(x_validation, y_validation, y_validation_bind)),
-    #                                              8 * FLAGS.batch_size, FLAGS.num_epochs)
-    # for batch_validation in batches_validation:
-    #     x_batch_validation, y_batch_validation, y_validation_bind = zip(*batch_validation)
-    #     print(x_batch_validation, y_validation, y_validation_bind)
-
     # Build vocabulary
     VOCAB_SIZE = data_helpers.load_vocab_size(FLAGS.embedding_dim)
     pretrained_word2vec_matrix = data_helpers.load_word2vec_matrix(VOCAB_SIZE, FLAGS.embedding_dim)
