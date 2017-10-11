@@ -68,8 +68,7 @@ def train_cnn():
     logger.info('✔︎ Loading data...')
 
     logger.info('✔︎ Training data processing...')
-    train_data = \
-        data_helpers.load_data_and_labels(FLAGS.training_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
+    train_data = data_helpers.load_data_and_labels(FLAGS.training_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
 
     logger.info('✔︎ Validation data processing...')
     validation_data = \
@@ -78,12 +77,10 @@ def train_cnn():
     logger.info('Recommand padding Sequence length is: {}'.format(FLAGS.pad_seq_len))
 
     logger.info('✔︎ Training data padding...')
-    x_train, y_train = \
-        data_helpers.pad_data(train_data, FLAGS.pad_seq_len)
+    x_train, y_train = data_helpers.pad_data(train_data, FLAGS.pad_seq_len)
 
     logger.info('✔︎ Validation data padding...')
-    x_validation, y_validation = \
-        data_helpers.pad_data(validation_data, FLAGS.pad_seq_len)
+    x_validation, y_validation = data_helpers.pad_data(validation_data, FLAGS.pad_seq_len)
 
     y_validation_bind = validation_data.labels_bind
 

@@ -62,8 +62,7 @@ def test_cnn():
 
     logger.info('✔︎ Test data processing...')
 
-    test_data = \
-        data_helpers.load_data_and_labels(FLAGS.test_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
+    test_data = data_helpers.load_data_and_labels(FLAGS.test_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
 
     logger.info('✔︎ Test data padding...')
 
