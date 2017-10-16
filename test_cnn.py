@@ -6,6 +6,9 @@ import numpy as np
 import tensorflow as tf
 import data_helpers
 
+# Parameters
+# ==================================================
+
 logger = data_helpers.logger_fn('tflog', 'test-{}.log'.format(time.asctime()))
 
 MODEL = input("☛ Please input the model file you want to test, it should be like(1490175368): ")
@@ -65,17 +68,13 @@ def test_cnn():
 
     # Load data
     logger.info("✔ Loading data...")
-
     logger.info('Recommand padding Sequence length is: {}'.format(FLAGS.pad_seq_len))
 
     logger.info('✔︎ Test data processing...')
-
     test_data = data_helpers.load_data_and_labels(FLAGS.test_data_file, FLAGS.num_classes, FLAGS.embedding_dim)
 
     logger.info('✔︎ Test data padding...')
-
     x_test, y_test = data_helpers.pad_data(test_data, FLAGS.pad_seq_len)
-
     y_test_bind = test_data.labels_bind
 
     # Build vocabulary

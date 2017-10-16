@@ -72,6 +72,7 @@ logger.info('\n'.join([dilim, *['{:>50}|{:<50}'.format(attr.upper(), value)
 
 def train_cnn():
     """Training CNN model."""
+
     # Load sentences, labels, and training parameters
     logger.info('✔︎ Loading data...')
 
