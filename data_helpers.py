@@ -27,15 +27,12 @@ def logger_fn(name, file, level=logging.INFO):
 
 
 def get_label_using_logits(logits, top_number=1):
-    predicted_labels = []
     logits = np.ndarray.tolist(logits)
+    predicted_labels = []
     for item in logits:
-        result = []
-        index_list = sorted(item, key=itemgetter(1), reverse=True)
-        index_list = index_list[:top_number]
-        for label in index_list:
-            result.append(label[0])
-        predicted_labels.append(result)
+        index_list = np.argsort(item)[-top_number:]
+        index_list = index_list[::-1]
+        predicted_labels.append(np.ndarray.tolist(index_list))
     return predicted_labels
 
 

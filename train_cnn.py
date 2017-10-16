@@ -132,7 +132,8 @@ def train_cnn():
 
             # Output directory for models and summaries
             if FLAGS.train_or_restore == 'R':
-                MODEL = input("☛ Please input the checkpoints model you want to restore: ")  # 需要恢复的网络模型
+                MODEL = input("☛ Please input the checkpoints model you want to restore, "
+                              "it should be like(1490175368): ")  # The model you want to restore
 
                 while not (MODEL.isdigit() and len(MODEL) == 10):
                     MODEL = input('✘ The format of your input is illegal, please re-input: ')
