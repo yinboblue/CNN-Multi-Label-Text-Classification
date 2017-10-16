@@ -127,9 +127,9 @@ def test_cnn():
 
                 if FLAGS.use_classbind_or_not == 'Y':
                     predicted_labels = data_helpers.get_label_using_logits_and_classbind(
-                        logits, y_batch_test_bind, top_number=FLAGS.top_num)
+                        batch_logits, y_batch_test_bind, top_number=FLAGS.top_num)
                 if FLAGS.use_classbind_or_not == 'N':
-                    predicted_labels = data_helpers.get_label_using_logits(logits, top_number=FLAGS.top_num)
+                    predicted_labels = data_helpers.get_label_using_logits(batch_logits, top_number=FLAGS.top_num)
 
                 all_predicitons = np.append(all_predicitons, predicted_labels)
                 cur_rec, cur_acc = 0.0, 0.0
