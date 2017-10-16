@@ -36,7 +36,6 @@ Embedding Layer + Convolutional Layer + Max-Pooling Layer + FC Layer + Softmax
 5. Can choose **train** the model directly or **restore** the model from checkpoint.  
 6. Add **model test code**. 
 
-
 ## References
 
 - [Convolutional Neural Networks for Sentence Classification](http://arxiv.org/abs/1408.5882)
