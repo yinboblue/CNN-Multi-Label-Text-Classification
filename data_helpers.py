@@ -26,7 +26,20 @@ def logger_fn(name, file, level=logging.INFO):
     return tf_logger
 
 
-def get_label_using_logits(logits, bind, top_number=1):
+def get_label_using_logits(logits, top_number=1):
+    predicted_labels = []
+    logits = np.ndarray.tolist(logits)
+    for item in logits:
+        result = []
+        index_list = sorted(item, key=itemgetter(1), reverse=True)
+        index_list = index_list[:top_number]
+        for label in index_list:
+            result.append(label[0])
+        predicted_labels.append(result)
+    return predicted_labels
+
+
+def get_label_using_logits_and_classbind(logits, bind, top_number=1):
     labels_bind =[]
     predicted_labels = []
     logits = np.ndarray.tolist(logits)

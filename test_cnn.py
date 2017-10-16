@@ -11,8 +11,15 @@ logger = data_helpers.logger_fn('tflog', 'test-{}.log'.format(time.asctime()))
 MODEL = input("☛ Please input the model file you want to test, it should be like(1490175368): ")
 
 while not (MODEL.isdigit() and len(MODEL) == 10):
-    SUBSET = input('✘ The format of your input is illegal, it should be like(1490175368), please re-input: ')
+    MODEL = input('✘ The format of your input is illegal, it should be like(1490175368), please re-input: ')
 logger.info('✔︎ The format of your input is legal, now loading to next step...')
+
+CLASS_BIND = input("☛ Use Class Bind or Not?(Y/N) \n")
+while not (CLASS_BIND.isalpha() and CLASS_BIND.upper() in ['Y', 'N']):
+    CLASS_BIND = input('✘ The format of your input is illegal, please re-input: ')
+logger.info('✔︎ The format of your input is legal, now loading to next step...')
+
+CLASS_BIND = CLASS_BIND.upper()
 
 TRAININGSET_DIR = 'Train.json'
 VALIDATIONSET_DIR = 'Validation.json'
@@ -25,6 +32,7 @@ tf.flags.DEFINE_string("training_data_file", TRAININGSET_DIR, "Data source for t
 tf.flags.DEFINE_string("validation_data_file", VALIDATIONSET_DIR, "Data source for the validation data")
 tf.flags.DEFINE_string("test_data_file", TESTSET_DIR, "Data source for the test data")
 tf.flags.DEFINE_string("checkpoint_dir", MODEL_DIR, "Checkpoint directory from training run")
+tf.flags.DEFINE_string("use_classbind_or_not", CLASS_BIND, "Use the class bind info or not.")
 
 # Model Hyperparameters
 tf.flags.DEFINE_integer("pad_seq_len", 150, "Recommand padding Sequence length of data (depends on the data)")
@@ -117,8 +125,13 @@ def test_cnn():
                     dropout_keep_prob: 1.0
                 }
                 batch_logits = sess.run(logits, feed_dict)
-                predicted_labels = data_helpers.get_label_using_logits(batch_logits, y_batch_test_bind,
-                                                                       top_number=FLAGS.top_num)
+
+                if FLAGS.use_classbind_or_not == 'Y':
+                    predicted_labels = data_helpers.get_label_using_logits_and_classbind(
+                        logits, y_batch_test_bind, top_number=FLAGS.top_num)
+                if FLAGS.use_classbind_or_not == 'N':
+                    predicted_labels = data_helpers.get_label_using_logits(logits, top_number=FLAGS.top_num)
+
                 all_predicitons = np.append(all_predicitons, predicted_labels)
                 cur_rec, cur_acc = 0.0, 0.0
                 for index, predicted_label in enumerate(predicted_labels):

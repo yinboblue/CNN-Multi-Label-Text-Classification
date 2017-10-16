@@ -11,17 +11,24 @@ from text_cnn import TextCNN
 # Parameters
 # ==================================================
 
-train_or_restore = input("☛ Train or Restore?(T/R) \n")
+TRAIN_OR_RESTORE = input("☛ Train or Restore?(T/R) \n")
 
-while not (train_or_restore.isalpha() and train_or_restore.upper() in ['T', 'R']):
-    train_or_restore = input('✘ The format of your input is illegal, please re-input: ')
+while not (TRAIN_OR_RESTORE.isalpha() and TRAIN_OR_RESTORE.upper() in ['T', 'R']):
+    TRAIN_OR_RESTORE = input('✘ The format of your input is illegal, please re-input: ')
 logging.info('✔︎ The format of your input is legal, now loading to next step...')
 
-train_or_restore = train_or_restore.upper()
+TRAIN_OR_RESTORE = TRAIN_OR_RESTORE.upper()
 
-if train_or_restore == 'T':
+CLASS_BIND = input("☛ Use Class Bind or Not?(Y/N) \n")
+while not (CLASS_BIND.isalpha() and CLASS_BIND.upper() in ['Y', 'N']):
+    CLASS_BIND = input('✘ The format of your input is illegal, please re-input: ')
+logging.info('✔︎ The format of your input is legal, now loading to next step...')
+
+CLASS_BIND = CLASS_BIND.upper()
+
+if TRAIN_OR_RESTORE == 'T':
     logger = data_helpers.logger_fn('tflog', 'training-{}.log'.format(time.asctime()))
-if train_or_restore == 'R':
+if TRAIN_OR_RESTORE == 'R':
     logger = data_helpers.logger_fn('tflog', 'restore-{}.log'.format(time.asctime()))
 
 TRAININGSET_DIR = 'Train.json'
@@ -30,7 +37,8 @@ VALIDATIONSET_DIR = 'Validation_bind.json'
 # Data loading params
 tf.flags.DEFINE_string("training_data_file", TRAININGSET_DIR, "Data source for the training data.")
 tf.flags.DEFINE_string("validation_data_file", VALIDATIONSET_DIR, "Data source for the validation data.")
-tf.flags.DEFINE_string("train_or_restore", train_or_restore, "Use the model or not(default: False)")
+tf.flags.DEFINE_string("train_or_restore", TRAIN_OR_RESTORE, "Train or Restore.")
+tf.flags.DEFINE_string("use_classbind_or_not", CLASS_BIND, "Use the class bind info or not.")
 
 # Model Hyperparameterss
 tf.flags.DEFINE_integer("pad_seq_len", 150, "Recommand padding Sequence length of data (depends on the data)")
@@ -202,8 +210,12 @@ def train_cnn():
                     step, summaries, logits, cur_loss = sess.run(
                         [cnn.global_step, validation_summary_op, cnn.logits, cnn.loss], feed_dict)
 
-                    predicted_labels = data_helpers.get_label_using_logits(logits, y_batch_validation_bind,
-                                                                           top_number=FLAGS.top_num)
+                    if FLAGS.use_classbind_or_not == 'Y':
+                        predicted_labels = data_helpers.get_label_using_logits_and_classbind(
+                            logits, y_batch_validation_bind, top_number=FLAGS.top_num)
+                    if FLAGS.use_classbind_or_not == 'N':
+                        predicted_labels = data_helpers.get_label_using_logits(logits, top_number=FLAGS.top_num)
+
                     cur_rec, cur_acc = 0.0, 0.0
                     for index, predicted_label in enumerate(predicted_labels):
                         rec_inc, acc_inc = data_helpers.cal_rec_and_acc(predicted_label, y_batch_validation[index])
