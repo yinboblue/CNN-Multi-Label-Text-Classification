@@ -23,6 +23,8 @@ Use `gensim` package to pre-train my data.
 
 ## Network Structure
 
+Embedding Layer + Convolutional Layer + Max-Pooling Layer + FC Layer + Softmax
+
 ![](https://farm5.staticflickr.com/4500/36676786824_2a45d53de3_o.png)
 
 ## Innovation
