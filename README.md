@@ -15,7 +15,7 @@ The main objective of the project is to solve the multi-label text classificatio
 
 Research data may attract copyright protection under China law. Thus, there is only code.
 
-实验数据属于实验室与某公司的合作项目，涉及商业机密，在此不予提供，还望谅解。
+实验数据属于实验室与某公司的合作项目，涉及商业机密，在此不予提供，还望谅解。更新
 
 ## Pre-trained Word Vectors
 
